@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#060812">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="description" content="Entdecke das Universum mit Captain Starman!">
+  <title>Captain Starman 🚀</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #060812;
+      --bg2:       #0c1020;
+      --bg3:       #12182e;
+      --border:    #1e2840;
+      --star:      #f0c040;
+      --star2:     #ffe080;
+      --space:     #4488ff;
+      --space2:    #88bbff;
+      --nebula:    #cc66ff;
+      --planet:    #ff6644;
+      --green:     #69f0ae;
+      --coral:     #fa5c7b;
+      --ink:       #e8f0ff;
+      --ink-soft:  #8090c0;
+      --ink-faint: #303860;
+      --radius:    16px;
+      --mono:      'JetBrains Mono', monospace;
+      --head:      'Syne', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; font-family: var(--head); background: var(--bg); color: var(--ink); }
+
+    /* STARFIELD */
+    #stars-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+
+    /* APP SHELL */
+    #app { position: relative; z-index: 1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* HEADER */
+    #header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.8rem 1.2rem; flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: rgba(6,8,18,0.9); backdrop-filter: blur(12px);
+    }
+    .logo { display: flex; align-items: center; gap: 0.5rem; }
+    .logo-icon { font-size: 1.4rem; animation: rocketFloat 3s ease-in-out infinite; }
+    @keyframes rocketFloat { 0%,100%{transform:translateY(0) rotate(-10deg)} 50%{transform:translateY(-4px) rotate(-10deg)} }
+    .logo-text { font-weight: 800; font-size: 1rem; letter-spacing: -0.02em; }
+    .logo-text span { color: var(--star); }
+    .nav-tabs { display: flex; gap: 0.3rem; }
+    .nav-btn {
+      font-family: var(--mono); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.05em;
+      padding: 0.35rem 0.7rem; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--ink-soft); cursor: pointer; transition: all 0.2s;
+      text-transform: uppercase;
+    }
+    .nav-btn.active { background: rgba(240,192,64,0.12); border-color: rgba(240,192,64,0.4); color: var(--star2); }
+    .nav-btn:hover:not(.active) { border-color: var(--ink-faint); color: var(--ink); }
+
+    /* SCREENS */
+    .screen { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 1rem 1rem 2rem; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ==================== SCREEN: ERKUNDEN ==================== */
+    #screen-explore { gap: 0; padding: 0; overflow: hidden; }
+
+    /* SOLAR CANVAS WRAP */
+    #solar-wrap {
+      position: relative; flex-shrink: 0;
+      background: radial-gradient(ellipse at center, rgba(68,136,255,0.07) 0%, transparent 65%);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+    #solar-canvas { display: block; width: 100%; touch-action: none; }
+
+    /* PLANET LABEL TOOLTIP */
+    #planet-hover-label {
+      position: absolute; pointer-events: none; display: none;
+      background: rgba(12,16,32,0.92); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.25rem 0.55rem;
+      font-family: var(--mono); font-size: 0.62rem; color: var(--ink);
+      white-space: nowrap; backdrop-filter: blur(8px);
+    }
+
+    /* INFO PANEL (below canvas) */
+    #explore-info { flex: 1; overflow-y: auto; padding: 0.9rem; }
+    #explore-info::-webkit-scrollbar { width: 3px; }
+    #explore-info::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* PLANET DETAIL PANEL */
+    #planet-panel {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.2rem; animation: panelIn 0.3s ease; display: none;
+    }
+    #planet-panel.visible { display: block; }
+    @keyframes panelIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .panel-header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.8rem; }
+    .panel-emoji { font-size: 2.5rem; }
+    .panel-title-wrap {}
+    .panel-name { font-size: 1.2rem; font-weight: 800; margin-bottom: 0.1rem; }
+    .panel-type { font-family: var(--mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
+
+    .panel-danger { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.7rem; border-radius: 20px; font-family: var(--mono); font-size: 0.62rem; font-weight: 700; margin-bottom: 0.8rem; }
+    .danger-safe  { background: rgba(105,240,174,0.1); border: 1px solid rgba(105,240,174,0.3); color: var(--green); }
+    .danger-warn  { background: rgba(255,230,0,0.1);   border: 1px solid rgba(255,230,0,0.3);   color: var(--star2); }
+    .danger-high  { background: rgba(255,102,68,0.1);  border: 1px solid rgba(255,102,68,0.3);  color: var(--planet); }
+    .danger-death { background: rgba(250,92,123,0.1);  border: 1px solid rgba(250,92,123,0.3);  color: var(--coral); }
+
+    .facts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.8rem; }
+    .fact-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.7rem; }
+    .fact-label { font-family: var(--mono); font-size: 0.55rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.2rem; }
+    .fact-val { font-size: 0.82rem; font-weight: 700; }
+    .fact-sub { font-size: 0.65rem; color: var(--ink-soft); margin-top: 0.1rem; }
+
+    .wow-fact { background: linear-gradient(135deg, rgba(68,136,255,0.06), rgba(240,192,64,0.04)); border: 1px solid rgba(240,192,64,0.2); border-radius: 10px; padding: 0.8rem; margin-bottom: 0.6rem; }
+    .wow-label { font-family: var(--mono); font-size: 0.55rem; color: var(--star2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+    .wow-text { font-size: 0.82rem; color: var(--ink); line-height: 1.5; }
+
+    /* ==================== SCREEN: RECHNER ==================== */
+    #screen-calc { gap: 0.8rem; }
+
+    .calc-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem; }
+    .calc-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.4rem; }
+    .calc-sub { font-size: 0.72rem; color: var(--ink); opacity: 0.7; margin-bottom: 0.8rem; }
+
+    .weight-input-wrap { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
+    .weight-input {
+      flex: 1; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px;
+      color: var(--ink); font-family: var(--head); font-size: 1.1rem; font-weight: 700;
+      padding: 0.7rem 1rem; text-align: center; outline: none; transition: border-color 0.2s;
+    }
+    .weight-input:focus { border-color: rgba(240,192,64,0.4); }
+    .weight-unit { font-family: var(--mono); font-size: 0.72rem; color: var(--star2); }
+
+    .gravity-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; }
+    .grav-card {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+      padding: 0.7rem 0.5rem; text-align: center; transition: all 0.2s; cursor: default;
+    }
+    .grav-card:hover { transform: translateY(-2px); border-color: rgba(240,192,64,0.2); }
+    .grav-emoji { font-size: 1.4rem; display: block; margin-bottom: 0.2rem; }
+    .grav-planet { font-family: var(--mono); font-size: 0.58rem; color: var(--ink-soft); margin-bottom: 0.2rem; }
+    .grav-weight { font-size: 0.95rem; font-weight: 800; color: var(--star2); }
+    .grav-diff { font-family: var(--mono); font-size: 0.55rem; margin-top: 0.15rem; }
+    .grav-more { color: var(--planet); }
+    .grav-less { color: var(--green); }
+
+    /* REISE RECHNER */
+    .reise-planet-select {
+      display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem;
+    }
+    .reise-planet-btn {
+      font-family: var(--mono); font-size: 0.62rem; padding: 0.3rem 0.6rem;
+      border-radius: 8px; border: 1px solid var(--border); background: var(--bg3);
+      color: var(--ink-soft); cursor: pointer; transition: all 0.2s;
+    }
+    .reise-planet-btn.active { border-color: rgba(136,187,255,0.4); color: var(--space2); background: rgba(68,136,255,0.08); }
+
+    .reise-results { display: flex; flex-direction: column; gap: 0.4rem; }
+    .reise-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.7rem; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
+    .reise-vehicle { font-size: 0.8rem; }
+    .reise-time { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; }
+
+    /* ==================== SCREEN: SAMMELN ==================== */
+    #screen-collect { gap: 0.8rem; }
+
+    /* SCORE BAR */
+    .score-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1.1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+    .score-left {}
+    .score-pts { font-size: 1.5rem; font-weight: 800; color: var(--star2); line-height: 1; }
+    .score-label { font-family: var(--mono); font-size: 0.58rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.1rem; }
+    .score-right { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+    .score-stat { text-align: center; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.6rem; }
+    .score-stat-val { font-family: var(--mono); font-size: 0.8rem; font-weight: 700; color: var(--ink); }
+    .score-stat-lbl { font-family: var(--mono); font-size: 0.5rem; color: var(--ink-faint); text-transform: uppercase; }
+
+    /* BADGES */
+    .badges-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; }
+    .section-head { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+    .badges-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.5rem; }
+    .badge-card { background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px; padding: 0.6rem 0.3rem; text-align: center; transition: all 0.2s; }
+    .badge-card.earned { border-color: rgba(240,192,64,0.4); background: rgba(240,192,64,0.06); }
+    .badge-card.locked { opacity: 0.3; filter: grayscale(0.8); }
+    .badge-icon { font-size: 1.4rem; display: block; margin-bottom: 0.25rem; }
+    .badge-name { font-family: var(--mono); font-size: 0.52rem; font-weight: 700; color: var(--ink-soft); line-height: 1.3; }
+    .badge-card.earned .badge-name { color: var(--star2); }
+    .badge-pts { font-family: var(--mono); font-size: 0.48rem; color: var(--green); margin-top: 0.15rem; }
+
+    /* PLANETS COLLECT GRID */
+    .collect-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; }
+    .collect-card {
+      background: var(--bg2); border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 0.75rem 0.4rem; text-align: center; transition: all 0.25s; cursor: pointer; position: relative;
+    }
+    .collect-card.unlocked { border-color: rgba(240,192,64,0.25); }
+    .collect-card.unlocked:hover { transform: translateY(-2px); border-color: rgba(240,192,64,0.5); }
+    .collect-card.locked { opacity: 0.3; filter: grayscale(1); cursor: default; }
+    .collect-card.bonus { border-color: rgba(204,102,255,0.3); background: rgba(204,102,255,0.04); }
+    .collect-card.bonus.locked { border-color: rgba(204,102,255,0.15); opacity: 0.4; }
+    .collect-planet-emoji { font-size: 1.8rem; display: block; margin-bottom: 0.25rem; }
+    .collect-planet-name { font-size: 0.72rem; font-weight: 700; margin-bottom: 0.1rem; }
+    .collect-status { font-family: var(--mono); font-size: 0.5rem; color: var(--ink-faint); }
+    .collect-card.unlocked .collect-status { color: var(--green); }
+    .collect-card.bonus.unlocked .collect-status { color: var(--nebula); }
+    .quiz-ready-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 6px var(--coral); animation: dotPulse 1.5s ease-in-out infinite; }
+    @keyframes dotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+
+    /* QUIZ MODAL */
+    #quiz-modal {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(6,8,18,0.92); backdrop-filter: blur(16px);
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    #quiz-modal.show { display: flex; }
+    .quiz-box {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.4rem; width: 100%; max-width: 420px;
+      animation: panelIn 0.3s ease;
+    }
+    .quiz-planet-header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1rem; }
+    .quiz-planet-emoji { font-size: 2.2rem; }
+    .quiz-planet-name { font-size: 1rem; font-weight: 800; }
+    .quiz-pts-badge { font-family: var(--mono); font-size: 0.6rem; color: var(--green); background: rgba(105,240,174,0.1); border: 1px solid rgba(105,240,174,0.3); border-radius: 20px; padding: 0.2rem 0.6rem; margin-top: 0.2rem; display: inline-block; }
+    .quiz-question { font-size: 0.92rem; font-weight: 700; color: var(--ink); margin-bottom: 0.9rem; line-height: 1.4; }
+    .quiz-options { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.8rem; }
+    .quiz-opt {
+      background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 0.7rem 0.9rem; font-size: 0.82rem; color: var(--ink); cursor: pointer; transition: all 0.2s; text-align: left;
+    }
+    .quiz-opt:hover:not(:disabled) { border-color: rgba(136,187,255,0.4); background: rgba(68,136,255,0.06); }
+    .quiz-opt.correct { border-color: var(--green); background: rgba(105,240,174,0.1); color: var(--green); }
+    .quiz-opt.wrong { border-color: var(--coral); background: rgba(250,92,123,0.08); color: var(--coral); }
+    .quiz-opt:disabled { cursor: default; }
+    .quiz-result { font-size: 0.82rem; margin-bottom: 0.8rem; min-height: 1.2rem; }
+    .quiz-result.win { color: var(--green); }
+    .quiz-result.fail { color: var(--coral); }
+    .quiz-close { width: 100%; padding: 0.7rem; border-radius: 10px; border: none; background: var(--bg3); border: 1px solid var(--border); color: var(--ink-soft); font-family: var(--head); font-size: 0.82rem; cursor: pointer; }
+
+    /* BONUS UNLOCK TOAST */
+    #toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 300; display: none; }
+    #toast.show { display: block; animation: toastIn 0.4s ease; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    .toast-inner { background: var(--bg2); border: 1px solid rgba(204,102,255,0.4); border-radius: 12px; padding: 0.7rem 1.1rem; font-size: 0.8rem; color: var(--nebula); text-align: center; white-space: nowrap; box-shadow: 0 4px 24px rgba(204,102,255,0.2); }
+
+    /* MISSIONS */
+    .mission-box { background: var(--bg2); border: 1px solid rgba(105,240,174,0.2); border-radius: var(--radius); padding: 1rem; }
+    .mission-title { font-size: 0.88rem; font-weight: 700; color: var(--green); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+    .mission-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .mission-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem; }
+    .mission-check { font-size: 0.9rem; }
+    .mission-text { color: var(--ink-soft); }
+    .mission-item.done .mission-text { color: var(--green); font-weight: 600; }
+
+    /* SCROLL CUSTOM */
+    .screen::-webkit-scrollbar { width: 3px; }
+    .screen::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* INSTALL BANNER */
+    #install-banner {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(12,16,32,0.97); border-top: 1px solid var(--border);
+      padding: 0.8rem 1rem; backdrop-filter: blur(12px);
+      flex-direction: column; gap: 0.5rem;
+    }
+    #install-banner.show { display: flex; }
+    .install-text { font-size: 0.8rem; color: var(--ink-soft); }
+    .install-text strong { color: var(--star2); }
+    .install-actions { display: flex; gap: 0.6rem; }
+    .install-btn-yes {
+      flex: 1; padding: 0.6rem; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, var(--star), #ff9a00);
+      color: #060812; font-family: var(--head); font-weight: 700; font-size: 0.8rem; cursor: pointer;
+    }
+    .install-btn-no {
+      padding: 0.6rem 1rem; border-radius: 10px; border: 1px solid var(--border);
+      background: transparent; color: var(--ink-soft); font-family: var(--head); font-size: 0.8rem; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <div class="logo">
+      <span class="logo-icon">🚀</span>
+      <div class="logo-text">Captain <span>Starman</span></div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-btn active" onclick="showScreen('explore')">🌍 Erkunden</button>
+      <button class="nav-btn" onclick="showScreen('calc')">⚖️ Rechner</button>
+      <button class="nav-btn" onclick="showScreen('collect')">⭐ Sammeln</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: ERKUNDEN -->
+  <div class="screen active" id="screen-explore">
+    <div id="solar-wrap">
+      <canvas id="solar-canvas"></canvas>
+      <div id="planet-hover-label"></div>
+    </div>
+    <div id="explore-info">
+      <div id="planet-panel"></div>
+      <div id="explore-hint" style="text-align:center;padding:1.5rem 1rem;color:var(--ink-soft);font-family:var(--mono);font-size:0.72rem;letter-spacing:0.05em;">
+        🪐 Tippe auf einen Planeten zum Entdecken
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: RECHNER -->
+  <div class="screen" id="screen-calc">
+
+    <!-- Gravitations-Rechner -->
+    <div class="calc-section">
+      <div class="calc-title">⚖️ Wie schwer wärst du?</div>
+      <div class="calc-sub">Gib dein Gewicht ein — sieh wie viel du auf jedem Planeten wiegen würdest!</div>
+      <div class="weight-input-wrap">
+        <input class="weight-input" type="number" id="weight-input" value="35" min="1" max="500" oninput="calcGravity()">
+        <span class="weight-unit">kg</span>
+      </div>
+      <div class="gravity-grid" id="gravity-grid">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+
+    <!-- Reisezeit-Rechner -->
+    <div class="calc-section">
+      <div class="calc-title">🚗 Wie lange dauert die Reise?</div>
+      <div class="calc-sub">Wähle einen Planeten und staune!</div>
+      <div class="reise-planet-select" id="reise-select">
+        <!-- Injected by JS -->
+      </div>
+      <div class="reise-results" id="reise-results">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SCREEN: SAMMELN -->
+  <div class="screen" id="screen-collect">
+
+    <!-- Score Bar -->
+    <div class="score-bar">
+      <div class="score-left">
+        <div class="score-pts" id="score-pts">0</div>
+        <div class="score-label">⭐ Punkte</div>
+      </div>
+      <div class="score-right">
+        <div class="score-stat">
+          <div class="score-stat-val" id="stat-discovered">0/9</div>
+          <div class="score-stat-lbl">Entdeckt</div>
+        </div>
+        <div class="score-stat">
+          <div class="score-stat-val" id="stat-quiz">0/9</div>
+          <div class="score-stat-lbl">Quiz ✓</div>
+        </div>
+        <div class="score-stat">
+          <div class="score-stat-val" id="stat-bonus">0/3</div>
+          <div class="score-stat-lbl">Bonus</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Badges -->
+    <div class="badges-section">
+      <div class="section-head">🏅 Abzeichen</div>
+      <div class="badges-grid" id="badges-grid"></div>
+    </div>
+
+    <!-- Planeten Grid -->
+    <div class="badges-section">
+      <div class="section-head">🌍 Planeten &amp; Objekte <span style="font-family:var(--mono);font-size:0.6rem;color:var(--ink-faint);font-weight:400">— tippe auf entdeckte für Quiz!</span></div>
+      <div class="collect-grid" id="collect-grid"></div>
+    </div>
+
+    <!-- Missionen -->
+    <div class="mission-box">
+      <div class="mission-title">🎯 Missionen</div>
+      <div class="mission-list" id="mission-list"></div>
+    </div>
+
+  </div>
+
+  <!-- QUIZ MODAL -->
+  <div id="quiz-modal">
+    <div class="quiz-box" id="quiz-box"></div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast"><div class="toast-inner" id="toast-text"></div></div>
+
+<!-- INSTALL BANNER -->
+<div id="install-banner">
+  <div class="install-text">📲 <strong>Captain Starman auf dem Tablet installieren?</strong> Dann hast du es immer dabei — auch ohne Internet!</div>
+  <div class="install-actions">
+    <button class="install-btn-yes" id="install-btn">🚀 Jetzt installieren!</button>
+    <button class="install-btn-no" onclick="dismissInstall()">Später</button>
+  </div>
+</div>
+
+<script>
+// ====================================================
+// DATA
+// ====================================================
+const PLANETS = [
+  {
+    id: 'merkur', name: 'Merkur', emoji: '🪨', type: 'Gesteinsplanet',
+    color: '#aaa', borderColor: 'rgba(170,170,170,0.4)',
+    danger: 'warn', dangerText: '⚠️ Extreme Temperaturen',
+    distKm: '77 Mio km', distAU: '0.39 AE',
+    radius: '2.440 km', gravFactor: 0.38,
+    dayLength: '59 Erdtage', year: '88 Erdtage',
+    travel: { car: '~3.500 Jahre', plane: '~100 Jahre', rocket: '~147 Tage' },
+    travelNote: 'Schnellste Sonde: Mariner 10',
+    wowFact: 'Merkur hat keine echte Atmosphäre — tagsüber 430°C heiß, nachts -180°C kalt! Das ist ein Unterschied von über 600 Grad. Sogar auf der Erde ist es nie so extrem.'
+  },
+  {
+    id: 'venus', name: 'Venus', emoji: '🌕', type: 'Gesteinsplanet',
+    color: '#ffcc66', borderColor: 'rgba(255,200,100,0.4)',
+    danger: 'death', dangerText: '☠️ Sofortiger Tod durch Hitze + Säure',
+    distKm: '261 Mio km', distAU: '0.72 AE',
+    radius: '6.051 km', gravFactor: 0.91,
+    dayLength: '243 Erdtage', year: '225 Erdtage',
+    travel: { car: '~11.850 Jahre', plane: '~354 Jahre', rocket: '~3 Monate' },
+    travelNote: 'Heißester Planet im Sonnensystem!',
+    wowFact: 'Venus ist heißer als Merkur — 465°C — obwohl sie weiter von der Sonne ist! Der Grund: ihr dicker Wolkenmantel aus Schwefelsäure hält die Hitze ein. Wie ein Backofen der nie abkühlt.'
+  },
+  {
+    id: 'mars', name: 'Mars', emoji: '🔴', type: 'Gesteinsplanet',
+    color: '#ff6644', borderColor: 'rgba(255,102,68,0.4)',
+    danger: 'warn', dangerText: '⚠️ Kein Sauerstoff, -63°C Durchschnitt',
+    distKm: '225 Mio km', distAU: '1.52 AE',
+    radius: '3.390 km', gravFactor: 0.38,
+    dayLength: '24 Std 37 Min', year: '687 Erdtage',
+    travel: { car: '~10.000 Jahre', plane: '~303 Jahre', rocket: '~7 Monate' },
+    travelNote: 'Ziel für die erste Marsmission!',
+    wowFact: 'Der Olympus Mons auf dem Mars ist 27 km hoch — fast 3× so hoch wie der Mount Everest! Und der Mariners Valley, ein Tal so breit wie Europa und so tief wie der Grand Canyon × 6.'
+  },
+  {
+    id: 'jupiter', name: 'Jupiter', emoji: '🟠', type: 'Gasriese',
+    color: '#ddaa66', borderColor: 'rgba(200,150,80,0.4)',
+    danger: 'death', dangerText: '☠️ Kein Boden — du fällst ewig',
+    distKm: '778 Mio km', distAU: '5.2 AE',
+    radius: '69.911 km', gravFactor: 2.34,
+    dayLength: '9 Std 56 Min', year: '11.9 Erdjahre',
+    travel: { car: '~35.000 Jahre', plane: '~1.065 Jahre', rocket: '~2.5 Jahre' },
+    travelNote: 'Größter Planet. 79 bekannte Monde!',
+    wowFact: 'Der Große Rote Fleck auf Jupiter ist ein Sturm — und er tobt seit über 400 Jahren! Dieser Sturm ist größer als die gesamte Erde. Jupiter hat auch keinen festen Boden: du würdest immer tiefer sinken...'
+  },
+  {
+    id: 'saturn', name: 'Saturn', emoji: '🪐', type: 'Gasriese',
+    color: '#ddcc88', borderColor: 'rgba(200,180,100,0.4)',
+    danger: 'high', dangerText: '☠️ Kein Boden, Ringe aus Eis',
+    distKm: '1.4 Mrd km', distAU: '9.5 AE',
+    radius: '58.232 km', gravFactor: 0.93,
+    dayLength: '10 Std 42 Min', year: '29.5 Erdjahre',
+    travel: { car: '~1.6 Mio Jahre', plane: '~48.000 Jahre', rocket: '~3 Jahre' },
+    travelNote: 'Saturn würde auf Wasser schwimmen!',
+    wowFact: 'Saturns Ringe sind riesig — aber nur etwa 20 Meter dick! Das ist wie ein Blatt Papier im Verhältnis zu seiner Größe. Und Saturn ist so leicht, dass er auf Wasser schwimmen würde, wenn man einen genug großen Ozean hätte.'
+  },
+  {
+    id: 'uranus', name: 'Uranus', emoji: '🔵', type: 'Eisriese',
+    color: '#88ccee', borderColor: 'rgba(100,180,220,0.4)',
+    danger: 'high', dangerText: '❄️ -224°C · Kältester Planet',
+    distKm: '2.9 Mrd km', distAU: '19.2 AE',
+    radius: '25.362 km', gravFactor: 0.89,
+    dayLength: '17 Std 14 Min', year: '84 Erdjahre',
+    travel: { car: '~3.3 Mio Jahre', plane: '~100.000 Jahre', rocket: '~9 Jahre' },
+    travelNote: 'Liegt auf der Seite — dreht sich rollend!',
+    wowFact: 'Uranus dreht sich wie ein rollender Ball um die Sonne — seine Achse ist 97.77° gekippt! Das bedeutet ein Pol zeigt zur Sonne für 42 Jahre, dann kommt Nacht für 42 Jahre. Verrückt!'
+  },
+  {
+    id: 'neptun', name: 'Neptun', emoji: '🌀', type: 'Eisriese',
+    color: '#4488ff', borderColor: 'rgba(68,136,255,0.4)',
+    danger: 'high', dangerText: '💨 Stärkste Winde: 2.100 km/h',
+    distKm: '4.5 Mrd km', distAU: '30.1 AE',
+    radius: '24.622 km', gravFactor: 1.12,
+    dayLength: '16 Std 7 Min', year: '165 Erdjahre',
+    travel: { car: '~5.1 Mio Jahre', plane: '~153.000 Jahre', rocket: '~12 Jahre' },
+    travelNote: 'Wurde mathematisch entdeckt, bevor man ihn sah!',
+    wowFact: 'Neptun hat die stärksten Winde im Sonnensystem — bis zu 2.100 km/h! Zum Vergleich: der stärkste Hurricane auf der Erde schafft 350 km/h. Und Neptun wurde entdeckt, indem man seine Schwerkraft auf Uranus beobachtete — bevor man ihn je gesehen hatte!'
+  },
+  {
+    id: 'mond', name: 'Mond', emoji: '🌙', type: 'Erdmond',
+    color: '#c8c8d0', borderColor: 'rgba(200,200,210,0.4)',
+    danger: 'warn', dangerText: '⚠️ Kein Sauerstoff, Meteoriten',
+    distKm: '384.400 km', distAU: '0.0026 AE',
+    radius: '1.737 km', gravFactor: 0.166,
+    dayLength: '27.3 Erdtage', year: '27.3 Erdtage',
+    travel: { car: '~170 Jahre', plane: '~5 Jahre', rocket: '~3 Tage' },
+    travelNote: '12 Menschen waren schon dort. Du auch bald?',
+    wowFact: 'Der Mond entfernt sich jedes Jahr um 3.8 cm von der Erde. Er war früher viel näher! Und weil er sich genauso schnell dreht, wie er die Erde umkreist, sehen wir immer dieselbe Seite des Mondes. Die Rückseite ist bis heute kaum erforscht.'
+  },
+];
+
+const SONNE = {
+  id: 'sonne', name: 'Die Sonne', emoji: '☀️', type: 'Stern — Gelber Zwerg',
+  color: '#ffdd33', borderColor: 'rgba(255,220,50,0.5)',
+  danger: 'death', dangerText: '☠️ Verdampft bevor du ankommst',
+  distKm: '0 km (wir sind hier)', distAU: '0 AE',
+  radius: '695.700 km', gravFactor: 28,
+  dayLength: '25–35 Erdtage', year: '—',
+  travel: { car: '—', plane: '—', rocket: '~1,5 Jahre (Raumsonde)' },
+  travelNote: 'Parker Solar Probe ist die nächste Sonde',
+  wowFact: '1.3 Millionen Erden passen in die Sonne! Und trotzdem ist sie nur ein mittlerer Stern. Es gibt Sterne die 1000× größer sind — die sogenannten Hyperriesen. Auf der Oberfläche ist es 5.500°C heiß, im Kern: 15 Millionen°C!'
+};
+
+const GRAVITY_PLANETS = [
+  { id: 'mond', name: 'Mond', emoji: '🌙', factor: 0.166 },
+  { id: 'mars', name: 'Mars', emoji: '🔴', factor: 0.38 },
+  { id: 'venus', name: 'Venus', emoji: '🌕', factor: 0.91 },
+  { id: 'erde', name: 'Erde', emoji: '🌍', factor: 1.0 },
+  { id: 'saturn', name: 'Saturn', emoji: '🪐', factor: 0.93 },
+  { id: 'neptun', name: 'Neptun', emoji: '🌀', factor: 1.12 },
+  { id: 'jupiter', name: 'Jupiter', emoji: '🟠', factor: 2.34 },
+  { id: 'uranus', name: 'Uranus', emoji: '🔵', factor: 0.89 },
+  { id: 'sonne', name: 'Sonne', emoji: '☀️', factor: 28 },
+];
+
+// ====================================================
+// STATE
+// ====================================================
+let discovered = JSON.parse(localStorage.getItem('cs_discovered') || '[]');
+let quizDone   = JSON.parse(localStorage.getItem('cs_quizDone')   || '[]');
+let bonusFound = JSON.parse(localStorage.getItem('cs_bonusFound') || '[]');
+let totalPts   = parseInt(localStorage.getItem('cs_pts') || '0');
+let selectedReisePlanet = 'mars';
+let selectedPlanet = null;
+
+function saveState() {
+  localStorage.setItem('cs_discovered', JSON.stringify(discovered));
+  localStorage.setItem('cs_quizDone',   JSON.stringify(quizDone));
+  localStorage.setItem('cs_bonusFound', JSON.stringify(bonusFound));
+  localStorage.setItem('cs_pts', totalPts);
+}
+
+function addPoints(n) {
+  totalPts += n;
+  saveState();
+}
+
+// ====================================================
+// QUIZ DATA
+// ====================================================
+const QUIZZES = {
+  sonne:   { q: 'Wie viele Erden passen in die Sonne?', opts: ['100', '10.000', '1.3 Millionen', '1 Milliarde'], ans: 2 },
+  merkur:  { q: 'Wie heiss wird Merkur tagsüber?', opts: ['-50°C', '100°C', '250°C', '430°C'], ans: 3 },
+  venus:   { q: 'Woraus besteht die Atmosphäre der Venus?', opts: ['Sauerstoff', 'Schwefelsäure', 'Wasser', 'Helium'], ans: 1 },
+  mars:    { q: 'Wie heisst der höchste Berg auf dem Mars?', opts: ['Mont Blanc', 'Everest', 'Olympus Mons', 'Mariners Peak'], ans: 2 },
+  jupiter: { q: 'Wie lange tobt der Grosse Rote Fleck schon?', opts: ['10 Jahre', '50 Jahre', '100 Jahre', '400+ Jahre'], ans: 3 },
+  saturn:  { q: 'Woraus bestehen Saturns Ringe?', opts: ['Staub', 'Eis', 'Metall', 'Gas'], ans: 1 },
+  uranus:  { q: 'Wie stark ist die Achse von Uranus gekippt?', opts: ['10°', '45°', '97°', '180°'], ans: 2 },
+  neptun:  { q: 'Wie stark sind die Winde auf Neptun?', opts: ['200 km/h', '500 km/h', '1.000 km/h', '2.100 km/h'], ans: 3 },
+  mond:    { q: 'Wie viele Menschen waren bisher auf dem Mond?', opts: ['2', '6', '12', '24'], ans: 2 },
+};
+
+// ====================================================
+// BONUS OBJECTS
+// ====================================================
+const BONUS_OBJECTS = [
+  {
+    id: 'pluto', name: 'Pluto', emoji: '🧊', color: '#aaccdd',
+    unlockHint: 'Löse alle 4 Gasriesen / Eisriesen Quiz richtig!',
+    unlockCheck: () => ['jupiter','saturn','uranus','neptun'].every(id => quizDone.includes(id)),
+    wowFact: 'Pluto war 76 Jahre lang ein Planet — bis 2006 wurde er zum "Zwergplaneten" degradiert. Kinder und Wissenschaftler waren empört! Er ist kleiner als der Mond.',
+  },
+  {
+    id: 'halley', name: "Halley's Komet", emoji: '☄️', color: '#88eeff',
+    unlockHint: 'Löse 6 Quiz richtig!',
+    unlockCheck: () => quizDone.length >= 6,
+    wowFact: "Halley's Komet kommt alle 75-76 Jahre vorbei. Die letzte Sichtung war 1986 — die nächste ist 2061! Wer heute 9 ist, wird ihn mit 44 sehen. 🌠",
+  },
+  {
+    id: 'blackhole', name: 'Schwarzes Loch', emoji: '🕳️', color: '#cc66ff',
+    unlockHint: 'Löse ALLE 9 Quiz richtig!',
+    unlockCheck: () => quizDone.length >= 9,
+    wowFact: 'Schwarze Löcher sind so schwer, dass selbst Licht nicht entkommen kann! Das nächste bekannte schwarze Loch ist ~1.600 Lichtjahre entfernt. Und in der Mitte unserer Milchstrasse sitzt ein riesiges — Sagittarius A*.',
+  },
+];
+
+// ====================================================
+// BADGES
+// ====================================================
+const BADGES = [
+  { id: 'first_step',  icon: '👣', name: 'Erster Schritt',   pts: 50,  check: () => discovered.length >= 1 },
+  { id: 'moonwalker', icon: '🌙', name: 'Mondläufer',        pts: 50,  check: () => discovered.includes('mond') },
+  { id: 'sun_starer', icon: '☀️', name: 'Sonnenglotzor',     pts: 50,  check: () => discovered.includes('sonne') },
+  { id: 'all_planets',icon: '🌍', name: 'Planetenkenner',    pts: 100, check: () => PLANETS.every(p => discovered.includes(p.id)) },
+  { id: 'quiz_3',     icon: '🧠', name: 'Quiz-Starter',      pts: 75,  check: () => quizDone.length >= 3 },
+  { id: 'quiz_all',   icon: '🏆', name: 'Quiz-Champion',     pts: 200, check: () => quizDone.length >= 9 },
+  { id: 'bonus_1',    icon: '🌟', name: 'Geheimfund',        pts: 100, check: () => bonusFound.length >= 1 },
+  { id: 'full_set',   icon: '🚀', name: 'Vollständig!',      pts: 300, check: () => bonusFound.length >= 3 },
+];
+let earnedBadges = JSON.parse(localStorage.getItem('cs_badges') || '[]');
+
+function checkBadges() {
+  let newBadge = false;
+  BADGES.forEach(b => {
+    if (!earnedBadges.includes(b.id) && b.check()) {
+      earnedBadges.push(b.id);
+      addPoints(b.pts);
+      newBadge = true;
+      showToast('🏅 Abzeichen erhalten: ' + b.name + ' (+' + b.pts + ' Pts)');
+    }
+  });
+  if (newBadge) localStorage.setItem('cs_badges', JSON.stringify(earnedBadges));
+}
+
+// ====================================================
+// TOAST
+// ====================================================
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-text').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ====================================================
+// STARFIELD
+// ====================================================
+(function initStars() {
+  const canvas = document.getElementById('stars-canvas');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function createStars() {
+    stars = [];
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.5 + 0.3,
+        a: Math.random(),
+        speed: Math.random() * 0.008 + 0.002,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const t = Date.now() * 0.001;
+    stars.forEach(s => {
+      const alpha = s.a * (0.5 + 0.5 * Math.sin(t * s.speed * 10 + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  resize();
+  createStars();
+  draw();
+  window.addEventListener('resize', () => { resize(); createStars(); });
+})();
+
+// ====================================================
+// NAVIGATION
+// ====================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    if (b.getAttribute('onclick').includes(name)) b.classList.add('active');
+  });
+  solarPaused = (name !== 'explore');
+  if (name === 'collect') updateCollectScreen();
+}
+
+// ====================================================
+// SOLAR SYSTEM CANVAS
+// ====================================================
+const SOLAR_PLANETS = [
+  // rel = anteil von solarMaxR (Neptun=1.0 = genau am Rand)
+  { id: 'merkur',  emoji: '🪨', color: '#aaaaaa', rel: 0.14, size: 10, speed: 0.88,  angle: 0.5 },
+  { id: 'venus',   emoji: '🌕', color: '#ffcc66', rel: 0.22, size: 12, speed: 0.55,  angle: 1.2 },
+  { id: 'mond',    emoji: '🌙', color: '#c8c8d0', rel: 0.285, size: 7, speed: 1.4,   angle: 3.1, isMoon: true },
+  { id: 'erde',    emoji: '🌍', color: '#4488ff', rel: 0.29, size: 13, speed: 0.43,  angle: 2.1 },
+  { id: 'mars',    emoji: '🔴', color: '#ff6644', rel: 0.38, size: 11, speed: 0.28,  angle: 0.9 },
+  { id: 'jupiter', emoji: '🟠', color: '#ddaa66', rel: 0.55, size: 20, speed: 0.13,  angle: 1.8 },
+  { id: 'saturn',  emoji: '🪐', color: '#ddcc88', rel: 0.67, size: 17, speed: 0.085, angle: 3.5 },
+  { id: 'uranus',  emoji: '🔵', color: '#88ccee', rel: 0.80, size: 15, speed: 0.05,  angle: 5.0 },
+  { id: 'neptun',  emoji: '🌀', color: '#4488ff', rel: 0.93, size: 14, speed: 0.032, angle: 2.7 },
+];
+
+let solarAngles = {};
+SOLAR_PLANETS.forEach(p => { solarAngles[p.id] = p.angle; });
+
+let solarCanvas, solarCtx, solarW, solarH, solarCX, solarCY, solarMaxR;
+let solarAnimId = null;
+let solarPaused = false;
+let hoveredPlanet = null;
+
+// Preload emoji to canvas
+const emojiCache = {};
+function getEmojiCanvas(emoji, size) {
+  const key = emoji + size;
+  if (emojiCache[key]) return emojiCache[key];
+  const c = document.createElement('canvas');
+  c.width = size * 2; c.height = size * 2;
+  const ctx = c.getContext('2d');
+  ctx.font = `${size * 1.6}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size, size);
+  emojiCache[key] = c;
+  return c;
+}
+
+function initSolarCanvas() {
+  solarCanvas = document.getElementById('solar-canvas');
+  solarCtx = solarCanvas.getContext('2d');
+  resizeSolarCanvas();
+  window.addEventListener('resize', resizeSolarCanvas);
+
+  // Touch/click
+  solarCanvas.addEventListener('click', onSolarClick);
+  solarCanvas.addEventListener('touchstart', onSolarTouch, { passive: true });
+  solarCanvas.addEventListener('mousemove', onSolarHover);
+  solarCanvas.addEventListener('mouseleave', () => {
+    hoveredPlanet = null;
+    document.getElementById('planet-hover-label').style.display = 'none';
+  });
+
+  startSolarLoop();
+}
+
+function resizeSolarCanvas() {
+  const wrap = document.getElementById('solar-wrap');
+  const header = document.getElementById('header');
+  solarW = wrap.clientWidth;
+  // Canvas-Höhe: verfügbare Viewport-Höhe minus Header minus Info-Panel (min 120px)
+  const headerH = header ? header.offsetHeight : 56;
+  const availH = window.innerHeight - headerH - 130;
+  solarH = Math.max(300, Math.min(availH, solarW, 520));
+  solarCanvas.width = solarW;
+  solarCanvas.height = solarH;
+  solarCanvas.style.height = solarH + 'px';
+  solarCX = Math.round(solarW / 2);
+  solarCY = Math.round(solarH / 2);
+  // solarMaxR: Neptun orbit (rel=0.93) + planet size (14px) + label (12px) muss reinpassen
+  const available = Math.min(solarCX, solarCY) - 28;
+  solarMaxR = available / 0.93;
+}
+
+function getOrbitR(rel) { return rel * solarMaxR; }
+function getPlanetPos(p) {
+  if (p.isMoon) {
+    // Moon orbits Earth
+    const earth = SOLAR_PLANETS.find(x => x.id === 'erde');
+    const er = getOrbitR(earth.rel);
+    const ex = solarCX + er * Math.cos(solarAngles['erde']);
+    const ey = solarCY + er * Math.sin(solarAngles['erde']);
+    const moonR = 22;
+    return {
+      x: ex + moonR * Math.cos(solarAngles['mond']),
+      y: ey + moonR * Math.sin(solarAngles['mond']),
+    };
+  }
+  const r = getOrbitR(p.rel);
+  return { x: solarCX + r * Math.cos(solarAngles[p.id]), y: solarCY + r * Math.sin(solarAngles[p.id]) };
+}
+
+let lastTime = null;
+function solarLoop(ts) {
+  if (!solarPaused) {
+    const dt = lastTime ? Math.min((ts - lastTime) / 1000, 0.05) : 0;
+    lastTime = ts;
+    SOLAR_PLANETS.forEach(p => {
+      solarAngles[p.id] = (solarAngles[p.id] + p.speed * dt) % (Math.PI * 2);
+    });
+  } else {
+    lastTime = ts;
+  }
+  drawSolar();
+  solarAnimId = requestAnimationFrame(solarLoop);
+}
+
+function startSolarLoop() {
+  if (solarAnimId) cancelAnimationFrame(solarAnimId);
+  solarAnimId = requestAnimationFrame(solarLoop);
+}
+
+function drawSolar() {
+  const ctx = solarCtx;
+  ctx.clearRect(0, 0, solarW, solarH);
+
+  // Draw orbit rings
+  SOLAR_PLANETS.forEach(p => {
+    if (p.isMoon) return; // moon orbit drawn separately
+    const r = getOrbitR(p.rel);
+    ctx.beginPath();
+    ctx.arc(solarCX, solarCY, r, 0, Math.PI * 2);
+    ctx.strokeStyle = p.id === selectedPlanet ? 'rgba(240,192,64,0.25)' : 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = p.id === selectedPlanet ? 1.5 : 0.8;
+    ctx.setLineDash(p.id === selectedPlanet ? [] : [3, 6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Orbit label oben auf der Bahn
+    const labelX = solarCX;
+    const labelY = solarCY - r - 4;
+    if (r > 14) {
+      ctx.save();
+      ctx.font = `600 10px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = p.id === selectedPlanet ? 'rgba(240,192,64,0.95)' : 'rgba(180,210,255,0.7)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const name = PLANETS.find(x => x.id === p.id)?.name || p.id;
+      ctx.fillText(name, labelX, Math.max(12, labelY));
+      ctx.restore();
+    }
+  });
+
+  // Draw Sun — Größe fix: 8% von solarMaxR, min 22px
+  const sunR = Math.max(22, solarMaxR * 0.08);
+  // Sun glow layers
+  [0.04, 0.09, 0.16].forEach((a, i) => {
+    const gr = ctx.createRadialGradient(solarCX, solarCY, 0, solarCX, solarCY, sunR * (2.5 - i * 0.5));
+    gr.addColorStop(0, `rgba(255,220,50,${a})`);
+    gr.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(solarCX, solarCY, sunR * (2.5 - i * 0.5), 0, Math.PI * 2);
+    ctx.fillStyle = gr;
+    ctx.fill();
+  });
+  // Sun emoji
+  const sunEmoji = getEmojiCanvas('☀️', sunR);
+  ctx.drawImage(sunEmoji, solarCX - sunR, solarCY - sunR, sunR * 2, sunR * 2);
+
+  // "Sonne" label
+  ctx.save();
+  ctx.font = `700 ${Math.max(8,Math.min(10,solarMaxR*0.06))}px 'JetBrains Mono', monospace`;
+  ctx.fillStyle = selectedPlanet === 'sonne' ? 'rgba(255,220,50,0.9)' : 'rgba(255,220,50,0.45)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Sonne', solarCX, solarCY + sunR + 12);
+  ctx.restore();
+
+  // Draw Moon orbit around Earth
+  const earth = SOLAR_PLANETS.find(x => x.id === 'erde');
+  const moonOrbitObj = SOLAR_PLANETS.find(x => x.isMoon);
+  if (earth && moonOrbitObj) {
+    const ep = getPlanetPos(earth);
+    ctx.beginPath();
+    ctx.arc(ep.x, ep.y, 22, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200,200,210,0.12)';
+    ctx.lineWidth = 0.7;
+    ctx.setLineDash([2, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw Planets
+  SOLAR_PLANETS.forEach(p => {
+    const pos = getPlanetPos(p);
+    const sz = p.size;
+    const isSelected = (p.id === selectedPlanet) || (p.id === 'erde' && selectedPlanet === 'erde');
+    const isHovered = hoveredPlanet === p.id;
+
+    // Selection glow
+    if (isSelected || isHovered) {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, sz + 6, 0, Math.PI * 2);
+      ctx.fillStyle = isSelected ? `${p.color}33` : `${p.color}22`;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, sz + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = isSelected ? p.color : `${p.color}88`;
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.stroke();
+    }
+
+    // Saturn ring
+    if (p.id === 'saturn') {
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.scale(1, 0.3);
+      ctx.beginPath();
+      ctx.arc(0, 0, sz + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(220,200,120,0.5)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Planet emoji
+    const ec = getEmojiCanvas(p.emoji, sz);
+    ctx.drawImage(ec, pos.x - sz, pos.y - sz, sz * 2, sz * 2);
+
+    // Moon label
+    if (p.isMoon) {
+      ctx.save();
+      ctx.font = `600 8px 'JetBrains Mono', monospace`;
+      ctx.fillStyle = 'rgba(200,200,210,0.4)';
+      ctx.textAlign = 'center';
+      ctx.fillText('Mond', pos.x, pos.y + sz + 9);
+      ctx.restore();
+    }
+  });
+
+  // Sun clickable label
+  if (selectedPlanet === 'sonne') {
+    ctx.beginPath();
+    ctx.arc(solarCX, solarCY, sunR + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,220,50,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function getSolarHitTarget(x, y) {
+  // Check sun
+  const sunR = Math.max(22, solarMaxR * 0.08) + 10;
+  const dSun = Math.hypot(x - solarCX, y - solarCY);
+  if (dSun < sunR) return 'sonne';
+
+  // Check planets
+  for (const p of [...SOLAR_PLANETS].reverse()) {
+    const pos = getPlanetPos(p);
+    const hitR = p.size + 14;
+    if (Math.hypot(x - pos.x, y - pos.y) < hitR) return p.id;
+  }
+  return null;
+}
+
+function onSolarClick(e) {
+  const rect = solarCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const hit = getSolarHitTarget(x, y);
+  if (hit) selectPlanet(hit === 'erde' ? 'erde_special' : hit, hit);
+}
+
+function onSolarTouch(e) {
+  const rect = solarCanvas.getBoundingClientRect();
+  const t = e.touches[0];
+  const x = t.clientX - rect.left;
+  const y = t.clientY - rect.top;
+  const hit = getSolarHitTarget(x, y);
+  if (hit) selectPlanet(hit);
+}
+
+function onSolarHover(e) {
+  const rect = solarCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const hit = getSolarHitTarget(x, y);
+  hoveredPlanet = hit;
+  const label = document.getElementById('planet-hover-label');
+  if (hit) {
+    const allObj = [SONNE, ...PLANETS];
+    const p = allObj.find(x => x.id === hit) || SOLAR_PLANETS.find(x => x.id === hit);
+    const name = p ? p.name || hit : hit;
+    label.textContent = name;
+    label.style.display = 'block';
+    label.style.left = Math.min(x + 10, solarW - 100) + 'px';
+    label.style.top = Math.max(y - 28, 4) + 'px';
+    solarCanvas.style.cursor = 'pointer';
+  } else {
+    label.style.display = 'none';
+    solarCanvas.style.cursor = 'default';
+  }
+}
+
+// Add Erde to PLANETS lookup (for the canvas hit)
+const ERDE_DATA = {
+  id: 'erde', name: 'Die Erde', emoji: '🌍', type: 'Gesteinsplanet — unser Zuhause',
+  color: '#4488ff', borderColor: 'rgba(68,136,255,0.4)',
+  danger: 'safe', dangerText: '✅ Einziger bekannter Planet mit Leben!',
+  distKm: '0 km (wir sind hier)', distAU: '1.0 AE',
+  radius: '6.371 km', gravFactor: 1.0,
+  dayLength: '24 Stunden', year: '365.25 Tage',
+  travel: { car: '—', plane: '—', rocket: '—' },
+  travelNote: 'Wir sind schon hier! 🏠',
+  wowFact: 'Die Erde ist der einzige bekannte Planet mit flüssigem Wasser an der Oberfläche — und mit Leben! 71% der Oberfläche ist Ozean. Aus dem Weltall sieht sie aus wie ein blauer Marmor. Carl Sagan nannte sie "Pale Blue Dot".'
+};
+
+function buildPlanets() {
+  // Legacy: kept for collect/quiz lookups — canvas replaces the HTML buttons
+  initSolarCanvas();
+}
+
+function selectPlanet(id) {
+  // Erde special case
+  const allObj = [SONNE, ERDE_DATA, ...PLANETS];
+  const planet = allObj.find(p => p.id === id);
+  if (!planet) return;
+
+  selectedPlanet = id;
+
+  // mark discovered + points (Erde nicht zählbar — sie ist immer "bekannt")
+  if (id !== 'erde' && !discovered.includes(id)) {
+    discovered.push(id);
+    addPoints(10);
+    saveState();
+    showToast('🌍 ' + planet.name + ' entdeckt! +10 Pts');
+    checkBadges();
+    checkBonusUnlocks();
+  }
+
+  // hide hint
+  document.getElementById('explore-hint').style.display = 'none';
+
+  // build panel
+  const panel = document.getElementById('planet-panel');
+  panel.classList.remove('visible');
+  setTimeout(() => {
+    panel.innerHTML = buildPanelHTML(planet);
+    panel.classList.add('visible');
+    // Scroll info area to top
+    document.getElementById('explore-info').scrollTop = 0;
+  }, 50);
+}
+
+function buildPanelHTML(p) {
+  const dangerClass = { safe: 'danger-safe', warn: 'danger-warn', high: 'danger-high', death: 'danger-death' }[p.danger] || 'danger-warn';
+  return `
+    <div class="panel-header">
+      <div class="panel-emoji">${p.emoji}</div>
+      <div class="panel-title-wrap">
+        <div class="panel-name" style="color:${p.color}">${p.name}</div>
+        <div class="panel-type">${p.type}</div>
+      </div>
+    </div>
+    <div class="panel-danger ${dangerClass}">${p.dangerText}</div>
+    <div class="facts-grid">
+      <div class="fact-box">
+        <div class="fact-label">Distanz von Erde</div>
+        <div class="fact-val" style="color:var(--space2)">${p.distKm}</div>
+        <div class="fact-sub">${p.distAU}</div>
+      </div>
+      <div class="fact-box">
+        <div class="fact-label">Radius</div>
+        <div class="fact-val" style="color:var(--nebula)">${p.radius}</div>
+        <div class="fact-sub">&nbsp;</div>
+      </div>
+      <div class="fact-box">
+        <div class="fact-label">Ein Tag dauert</div>
+        <div class="fact-val" style="color:var(--green)">${p.dayLength}</div>
+        <div class="fact-sub">&nbsp;</div>
+      </div>
+      <div class="fact-box">
+        <div class="fact-label">Rakete braucht</div>
+        <div class="fact-val" style="color:var(--star2)">${p.travel.rocket}</div>
+        <div class="fact-sub">${p.travelNote}</div>
+      </div>
+    </div>
+    <div class="wow-fact">
+      <div class="wow-label">🤯 Staunen-Fakt</div>
+      <div class="wow-text">${p.wowFact}</div>
+    </div>
+  `;
+}
+
+// ====================================================
+// GRAVITY CALCULATOR
+// ====================================================
+function buildGravityGrid() {
+  const grid = document.getElementById('gravity-grid');
+  grid.innerHTML = '';
+  GRAVITY_PLANETS.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'grav-card';
+    card.id = 'grav_' + p.id;
+    card.innerHTML = `
+      <span class="grav-emoji">${p.emoji}</span>
+      <div class="grav-planet">${p.name}</div>
+      <div class="grav-weight" id="gw_${p.id}">35 kg</div>
+      <div class="grav-diff" id="gd_${p.id}"></div>
+    `;
+    grid.appendChild(card);
+  });
+  calcGravity();
+}
+
+function calcGravity() {
+  const w = parseFloat(document.getElementById('weight-input').value) || 35;
+  GRAVITY_PLANETS.forEach(p => {
+    const result = Math.round(w * p.factor * 10) / 10;
+    const el = document.getElementById('gw_' + p.id);
+    const diff = document.getElementById('gd_' + p.id);
+    if (!el) return;
+    el.textContent = result + ' kg';
+    if (p.factor === 1.0) {
+      diff.textContent = '= Erde';
+      diff.className = 'grav-diff';
+    } else if (p.factor > 1) {
+      diff.textContent = '+' + Math.round((p.factor - 1) * 100) + '%';
+      diff.className = 'grav-diff grav-more';
+    } else {
+      diff.textContent = '-' + Math.round((1 - p.factor) * 100) + '%';
+      diff.className = 'grav-diff grav-less';
+    }
+  });
+}
+
+// ====================================================
+// REISE CALCULATOR
+// ====================================================
+function buildReiseSelect() {
+  const sel = document.getElementById('reise-select');
+  const reisePlanets = [...PLANETS];
+  reisePlanets.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'reise-planet-btn' + (p.id === selectedReisePlanet ? ' active' : '');
+    btn.textContent = p.emoji + ' ' + p.name;
+    btn.onclick = () => selectReisePlanet(p.id);
+    sel.appendChild(btn);
+  });
+  updateReise();
+}
+
+function selectReisePlanet(id) {
+  selectedReisePlanet = id;
+  document.querySelectorAll('.reise-planet-btn').forEach((b, i) => {
+    b.classList.toggle('active', PLANETS[i].id === id);
+  });
+  updateReise();
+}
+
+function updateReise() {
+  const planet = PLANETS.find(p => p.id === selectedReisePlanet);
+  if (!planet) return;
+  const results = document.getElementById('reise-results');
+  results.innerHTML = `
+    <div class="reise-row">
+      <span class="reise-vehicle">🚗 Mit dem Auto</span>
+      <span class="reise-time" style="color:var(--coral)">${planet.travel.car}</span>
+    </div>
+    <div class="reise-row">
+      <span class="reise-vehicle">✈️ Mit dem Flugzeug</span>
+      <span class="reise-time" style="color:var(--star2)">${planet.travel.plane}</span>
+    </div>
+    <div class="reise-row">
+      <span class="reise-vehicle">🚀 Mit der Rakete</span>
+      <span class="reise-time" style="color:var(--green)">${planet.travel.rocket}</span>
+    </div>
+    <div style="font-family:var(--mono);font-size:0.6rem;color:var(--ink-faint);padding:0.4rem 0.3rem">${planet.travelNote}</div>
+  `;
+}
+
+// ====================================================
+// COLLECT SCREEN
+// ====================================================
+function buildCollectGrid() {
+  const grid = document.getElementById('collect-grid');
+  grid.innerHTML = '';
+  const allObjects = [SONNE, ...PLANETS];
+  allObjects.forEach(p => {
+    const card = document.createElement('div');
+    const unlocked = discovered.includes(p.id);
+    const quized = quizDone.includes(p.id);
+    card.className = 'collect-card ' + (unlocked ? 'unlocked' : 'locked');
+    card.id = 'cc_' + p.id;
+    card.innerHTML = `
+      ${unlocked && !quized ? '<div class="quiz-ready-dot"></div>' : ''}
+      <span class="collect-planet-emoji">${unlocked ? p.emoji : '❓'}</span>
+      <div class="collect-planet-name" style="color:${unlocked ? p.color : 'var(--ink-faint)'}">${unlocked ? p.name : '???'}</div>
+      <div class="collect-status">${quized ? '✅ Quiz ✓' : unlocked ? '💬 Quiz!' : '🔒'}</div>
+    `;
+    if (unlocked) card.onclick = () => openQuiz(p.id);
+    grid.appendChild(card);
+  });
+
+  // Bonus Objekte
+  BONUS_OBJECTS.forEach(b => {
+    const card = document.createElement('div');
+    const found = bonusFound.includes(b.id);
+    card.className = 'collect-card bonus ' + (found ? 'unlocked' : 'locked');
+    card.id = 'cc_' + b.id;
+    card.innerHTML = `
+      <span class="collect-planet-emoji">${found ? b.emoji : '🔮'}</span>
+      <div class="collect-planet-name" style="color:${found ? b.color : 'var(--nebula)'}">${found ? b.name : '???'}</div>
+      <div class="collect-status">${found ? '✨ Geheim-Fund' : '🔒 Geheim'}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function buildBadgesGrid() {
+  const grid = document.getElementById('badges-grid');
+  grid.innerHTML = '';
+  BADGES.forEach(b => {
+    const earned = earnedBadges.includes(b.id);
+    const card = document.createElement('div');
+    card.className = 'badge-card ' + (earned ? 'earned' : 'locked');
+    card.innerHTML = `
+      <span class="badge-icon">${b.icon}</span>
+      <div class="badge-name">${b.name}</div>
+      <div class="badge-pts">+${b.pts} Pts</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function updateCollectScreen() {
+  // Score
+  document.getElementById('score-pts').textContent = totalPts;
+  document.getElementById('stat-discovered').textContent = discovered.length + '/9';
+  document.getElementById('stat-quiz').textContent = quizDone.length + '/9';
+  document.getElementById('stat-bonus').textContent = bonusFound.length + '/3';
+
+  // Rebuild grids
+  buildCollectGrid();
+  buildBadgesGrid();
+  buildMissions();
+}
+
+function buildMissions() {
+  const missions = [
+    { text: '🌍 Entdecke deinen ersten Planeten',      done: discovered.length >= 1 },
+    { text: '🌙 Besuche den Mond',                     done: discovered.includes('mond') },
+    { text: '☀️ Trau dich zur Sonne!',                  done: discovered.includes('sonne') },
+    { text: '🌍 Entdecke alle 8 Planeten',             done: PLANETS.every(p => discovered.includes(p.id)) },
+    { text: '🧠 Löse 3 Quiz richtig',                  done: quizDone.length >= 3 },
+    { text: '🏆 Löse ALLE 9 Quiz richtig',             done: quizDone.length >= 9 },
+    { text: '🌟 Finde ein geheimes Bonus-Objekt',      done: bonusFound.length >= 1 },
+    { text: '🚀 Finde ALLE 3 Bonus-Objekte',           done: bonusFound.length >= 3 },
+  ];
+  const list = document.getElementById('mission-list');
+  list.innerHTML = '';
+  missions.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'mission-item' + (m.done ? ' done' : '');
+    item.innerHTML = `
+      <span class="mission-check">${m.done ? '✅' : '⭕'}</span>
+      <span class="mission-text">${m.text}</span>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// ====================================================
+// QUIZ
+// ====================================================
+function openQuiz(planetId) {
+  const quiz = QUIZZES[planetId];
+  if (!quiz) return;
+  const allObj = [SONNE, ...PLANETS];
+  const planet = allObj.find(p => p.id === planetId);
+  const alreadyDone = quizDone.includes(planetId);
+
+  const box = document.getElementById('quiz-box');
+  box.innerHTML = `
+    <div class="quiz-planet-header">
+      <div class="quiz-planet-emoji">${planet.emoji}</div>
+      <div>
+        <div class="quiz-planet-name" style="color:${planet.color}">${planet.name}</div>
+        <div class="quiz-pts-badge">${alreadyDone ? '✅ Schon gelöst — nochmal?' : '+25 Pts bei richtiger Antwort!'}</div>
+      </div>
+    </div>
+    <div class="quiz-question">${quiz.q}</div>
+    <div class="quiz-options" id="quiz-opts">
+      ${quiz.opts.map((o, i) => `<button class="quiz-opt" onclick="answerQuiz('${planetId}', ${i})">${o}</button>`).join('')}
+    </div>
+    <div class="quiz-result" id="quiz-result"></div>
+    <button class="quiz-close" onclick="closeQuiz()">Schliessen</button>
+  `;
+  document.getElementById('quiz-modal').classList.add('show');
+}
+
+function answerQuiz(planetId, chosen) {
+  const quiz = QUIZZES[planetId];
+  const opts = document.querySelectorAll('.quiz-opt');
+  opts.forEach(o => o.disabled = true);
+  opts[quiz.ans].classList.add('correct');
+  const result = document.getElementById('quiz-result');
+
+  if (chosen === quiz.ans) {
+    opts[chosen].classList.add('correct');
+    result.className = 'quiz-result win';
+    result.textContent = '🎉 Richtig! Fantastisch!';
+    if (!quizDone.includes(planetId)) {
+      quizDone.push(planetId);
+      addPoints(25);
+      saveState();
+      checkBadges();
+      checkBonusUnlocks();
+      showToast('🧠 Quiz gelöst! +25 Pts');
+    }
+  } else {
+    opts[chosen].classList.add('wrong');
+    result.className = 'quiz-result fail';
+    result.textContent = '❌ Nicht ganz — die richtige Antwort ist markiert!';
+  }
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-modal').classList.remove('show');
+  updateCollectScreen();
+}
+
+// ====================================================
+// BONUS OBJECTS
+// ====================================================
+function checkBonusUnlocks() {
+  BONUS_OBJECTS.forEach(b => {
+    if (!bonusFound.includes(b.id) && b.unlockCheck()) {
+      bonusFound.push(b.id);
+      addPoints(100);
+      saveState();
+      checkBadges();
+      setTimeout(() => showToast('🔮 Geheim-Objekt freigeschaltet: ' + b.name + '! +100 Pts'), 500);
+    }
+  });
+}
+
+// ====================================================
+// PWA / INSTALL
+// ====================================================
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!localStorage.getItem('cs_install_dismissed')) {
+    document.getElementById('install-banner').classList.add('show');
+  }
+});
+
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').classList.remove('show');
+});
+
+function dismissInstall() {
+  localStorage.setItem('cs_install_dismissed', '1');
+  document.getElementById('install-banner').classList.remove('show');
+}
+
+// ====================================================
+// INIT
+// ====================================================
+buildPlanets();
+buildGravityGrid();
+buildReiseSelect();
+buildCollectGrid();
+buildBadgesGrid();
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js");
+    });
+  }
+</script>
+</body>
+</html>
